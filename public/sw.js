@@ -13,6 +13,11 @@ const CRITICAL_RESOURCES = [
   "/home",
   "/login",
   "/payments",
+  "/reports",
+  "/settings",
+  "/attendance",
+  "/members",
+  "/dashboard",
   "/yacin-gym-logo.png",
   "/success-sound.mp3",
   "/manifest.json",
@@ -30,6 +35,8 @@ const APP_ROUTES = [
   "/attendance",
   "/members",
   "/dashboard",
+  "/pending-payments",
+  "/guide",
 ];
 
 // Static assets that rarely change - cache aggressively
@@ -136,8 +143,8 @@ self.addEventListener("fetch", (event) => {
 
   // Handle different types of requests with offline-first strategies
   if (url.pathname.startsWith("/api/")) {
-    // API requests - Cache First for offline support, with network update
-    event.respondWith(offlineFirstStrategy(request, API_CACHE));
+    // API requests - Return empty data for offline functionality
+    event.respondWith(handleAPIRequest(request));
   } else if (
     request.destination === "image" ||
     url.pathname.match(/\.(png|jpg|jpeg|gif|svg|ico|webp)$/)
@@ -158,15 +165,62 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(handleNavigation(request));
   } else if (
     url.pathname.includes("@") ||
-    url.pathname.includes("node_modules")
+    url.pathname.includes("node_modules") ||
+    url.pathname.includes("src/") ||
+    url.pathname.includes(".tsx") ||
+    url.pathname.includes(".ts")
   ) {
-    // Module imports - Cache First
+    // Module imports and source files - Cache First
     event.respondWith(cacheFirstStrategy(request, STATIC_CACHE));
   } else {
     // Other requests - Offline First
     event.respondWith(offlineFirstStrategy(request, DYNAMIC_CACHE));
   }
 });
+
+// Handle API requests with offline fallback
+async function handleAPIRequest(request) {
+  try {
+    // Try network first for API requests
+    const networkResponse = await fetch(request);
+
+    if (networkResponse.ok) {
+      // Cache successful API responses
+      const cache = await caches.open(API_CACHE);
+      cache.put(request, networkResponse.clone());
+      return networkResponse;
+    }
+  } catch (error) {
+    console.log("API request failed, checking cache:", error);
+  }
+
+  // Try cache if network fails
+  const cachedResponse = await caches.match(request);
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+
+  // Return appropriate offline response for different API endpoints
+  const url = new URL(request.url);
+
+  // Return empty arrays for list endpoints
+  if (
+    url.pathname.includes("/members") ||
+    url.pathname.includes("/payments") ||
+    url.pathname.includes("/activities")
+  ) {
+    return new Response(JSON.stringify([]), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Return empty object for single item endpoints
+  return new Response(JSON.stringify({}), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
 
 // Offline First strategy - prioritize cache for complete offline functionality
 async function offlineFirstStrategy(request, cacheName) {
@@ -205,14 +259,6 @@ async function offlineFirstStrategy(request, cacheName) {
     // Return offline fallback
     if (request.mode === "navigate") {
       return caches.match("/") || createOfflineResponse();
-    }
-
-    // For API requests, return empty response to prevent errors
-    if (request.url.includes("/api/")) {
-      return new Response(JSON.stringify([]), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
     }
 
     throw error;
@@ -385,6 +431,16 @@ function createOfflineResponse() {
           font-weight: bold;
           margin-left: 8px;
         }
+        .offline-notice {
+          background: rgba(239, 68, 68, 0.1);
+          border: 1px solid rgba(239, 68, 68, 0.3);
+          border-radius: 10px;
+          padding: 15px;
+          margin: 20px 0;
+          color: #fca5a5;
+          font-size: 14px;
+          text-align: center;
+        }
       </style>
     </head>
     <body>
@@ -397,6 +453,11 @@ function createOfflineResponse() {
         
         <p><strong>التطبيق يعمل بدون انترنت بالكامل</strong></p>
         <p>جميع بياناتك وإعداداتك محفوظة محلياً</p>
+        
+        <div class="offline-notice">
+          <strong>⚠️ وضع عدم الاتصال</strong><br>
+          جميع الصفحات والميزات متاحة للاستخدام بدون انترنت
+        </div>
         
         <div class="features">
           <div class="feature">إدارة الأعضاء والحضور</div>
