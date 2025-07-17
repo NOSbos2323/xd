@@ -140,10 +140,18 @@ const PendingPaymentsPage = ({ onBack }: PendingPaymentsPageProps) => {
           return memberMonth === lastMonth && memberYear === lastMonthYear;
 
         case "expired":
-          // Check if subscription has expired (more than 1 month old)
-          const oneMonthLater = new Date(memberDate);
-          oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
-          return currentDate > oneMonthLater;
+          // Check if subscription has expired based on membership type
+          if (member.membershipType === "نصف شهري") {
+            // For half-month memberships, check if 15 days have passed
+            const halfMonthLater = new Date(memberDate);
+            halfMonthLater.setDate(memberDate.getDate() + 15);
+            return currentDate > halfMonthLater;
+          } else {
+            // For regular monthly memberships, check if one month has passed
+            const oneMonthLater = new Date(memberDate);
+            oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
+            return currentDate > oneMonthLater;
+          }
 
         default:
           return true;
@@ -168,14 +176,21 @@ const PendingPaymentsPage = ({ onBack }: PendingPaymentsPageProps) => {
             member.sessionsRemaining !== undefined &&
             member.sessionsRemaining === 0;
 
-          // Check if subscription month has ended
+          // Check if subscription has ended based on membership type
           const hasExpiredSubscription = (() => {
             if (!member.membershipStartDate) return false;
 
             const startDate = new Date(member.membershipStartDate);
             const currentDate = new Date();
 
-            // Calculate one month from start date
+            // For half-month memberships, check if 15 days have passed
+            if (member.membershipType === "نصف شهري") {
+              const halfMonthLater = new Date(startDate);
+              halfMonthLater.setDate(startDate.getDate() + 15);
+              return currentDate > halfMonthLater;
+            }
+
+            // For regular monthly memberships, check if one month has passed
             const oneMonthLater = new Date(startDate);
             oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
 
@@ -183,6 +198,7 @@ const PendingPaymentsPage = ({ onBack }: PendingPaymentsPageProps) => {
             return currentDate > oneMonthLater;
           })();
 
+          // Include members with expired subscriptions even if they have paid status
           return (
             hasUnpaidStatus ||
             hasPendingMembership ||
@@ -413,9 +429,19 @@ const PendingPaymentsPage = ({ onBack }: PendingPaymentsPageProps) => {
                     allUnpaidMembers.filter((m) => {
                       if (!m.membershipStartDate) return false;
                       const memberDate = new Date(m.membershipStartDate);
-                      const oneMonthLater = new Date(memberDate);
-                      oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
-                      return new Date() > oneMonthLater;
+                      const currentDate = new Date();
+
+                      if (m.membershipType === "نصف شهري") {
+                        // For half-month memberships, check if 15 days have passed
+                        const halfMonthLater = new Date(memberDate);
+                        halfMonthLater.setDate(memberDate.getDate() + 15);
+                        return currentDate > halfMonthLater;
+                      } else {
+                        // For regular monthly memberships, check if one month has passed
+                        const oneMonthLater = new Date(memberDate);
+                        oneMonthLater.setMonth(oneMonthLater.getMonth() + 1);
+                        return currentDate > oneMonthLater;
+                      }
                     }).length
                   }
                   )

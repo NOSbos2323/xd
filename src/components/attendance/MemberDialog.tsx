@@ -123,11 +123,42 @@ const MemberDialog = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      const newData = { ...prev, [name]: value };
+
+      // Auto-calculate end date for نصف شهري membership when start date changes
+      if (
+        name === "membershipStartDate" &&
+        prev.membershipType === "نصف شهري"
+      ) {
+        const startDate = new Date(value);
+        const endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 15);
+        newData.membershipEndDate = endDate.toISOString().split("T")[0];
+      }
+
+      return newData;
+    });
   };
 
   const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      const newData = { ...prev, [name]: value };
+
+      // Auto-select subscription type and calculate end date for نصف شهري membership
+      if (name === "membershipType" && value === "نصف شهري") {
+        const startDate = new Date(prev.membershipStartDate || new Date());
+        const endDate = new Date(startDate);
+        endDate.setDate(startDate.getDate() + 15);
+
+        newData.subscriptionType = "15 حصة";
+        newData.sessionsRemaining = 15;
+        newData.subscriptionPrice = getCurrentPrice("15 حصة");
+        newData.membershipEndDate = endDate.toISOString().split("T")[0];
+      }
+
+      return newData;
+    });
   };
 
   const triggerFileInput = () => {
@@ -340,6 +371,7 @@ const MemberDialog = ({
                   </SelectTrigger>
                   <SelectContent className="bg-bluegray-700 border-bluegray-600 text-white">
                     <SelectItem value="شهري">شهري</SelectItem>
+                    <SelectItem value="نصف شهري">نصف شهري</SelectItem>
                     <SelectItem value="سنوي">سنوي</SelectItem>
                     <SelectItem value="ربع سنوي">ربع سنوي</SelectItem>
                   </SelectContent>
